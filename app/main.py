@@ -13,9 +13,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .auth import usuario_actual
-from .db import conexion, dict_cursor, esperar_bd
+from .db import conexion, dict_cursor, esperar_bd, ping
 
 
 @asynccontextmanager
@@ -45,6 +46,30 @@ app.add_middleware(
 #   - liveness: ¿el proceso está vivo? (respuesta simple).
 #   - readiness: ¿está listo para recibir tráfico? Debe verificar la BD.
 # Luego configurar livenessProbe/readinessProbe en el Deployment de EKS.
+
+@app.get("/livez")
+def liveness():
+    return {
+        "status": "ok",
+        "service": "estadisticas-service"
+    }
+
+
+@app.get("/readyz")
+def readiness():
+    if ping():
+        return {
+            "status": "ready",
+            "database": "connected"
+        }
+
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "not ready",
+            "database": "disconnected"
+        }
+    )
 
 
 @app.get("/api/estadisticas/mias")
